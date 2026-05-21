@@ -47,7 +47,7 @@ $hash_data = md5($pp_id.$good_mny.$pp['pp_time']);
 
 if($pp['pp_tno']){
     if( $default['de_pg_service'] == 'inicis' && ($pp_id === get_session('ss_personalpay_id') && $hash_data === get_session('ss_personalpay_hash')) ){
-        $uid = md5($pp['pp_id'].$pp['pp_time'].$_SERVER['REMOTE_ADDR']);
+        $uid = function_exists('get_shop_uid') ? get_shop_uid('personalpay', $pp['pp_id'], $pp['pp_time'], $_SERVER['REMOTE_ADDR']) : md5($pp['pp_id'].$pp['pp_time'].$_SERVER['REMOTE_ADDR']);
         set_session('ss_personalpay_uid', $uid);
 
         goto_url(G5_SHOP_URL.'/personalpayresult.php?pp_id='.$pp['pp_id'].'&amp;uid='.$uid);
@@ -183,7 +183,7 @@ if((int)$pp['pp_price'] !== (int)$pg_price) {
             include G5_SHOP_PATH.'/lg/xpay_cancel.php';
             break;
         case 'toss':
-            include G5_SHOP_PATH.'/toss/toss_result.php';
+            include G5_SHOP_PATH.'/toss/toss_cancel.php';
             break;
         case 'inicis':
             include G5_SHOP_PATH.'/inicis/inipay_cancel.php';
@@ -271,7 +271,7 @@ if($pp_receipt_price > 0 && $pp['pp_id'] && $pp['od_id']) {
                 include G5_SHOP_PATH.'/lg/xpay_cancel.php';
                 break;
             case 'toss':
-                include G5_SHOP_PATH.'/toss/toss_result.php';
+                include G5_SHOP_PATH.'/toss/toss_cancel.php';
                 break;
             case 'inicis':
                 include G5_SHOP_PATH.'/inicis/inipay_cancel.php';
@@ -311,7 +311,7 @@ sql_query($sql);
 set_session('ss_personalpay_id', '');
 set_session('ss_personalpay_hash', '');
 
-$uid = md5($pp['pp_id'].$pp['pp_time'].$_SERVER['REMOTE_ADDR']);
+$uid = function_exists('get_shop_uid') ? get_shop_uid('personalpay', $pp['pp_id'], $pp['pp_time'], $_SERVER['REMOTE_ADDR']) : md5($pp['pp_id'].$pp['pp_time'].$_SERVER['REMOTE_ADDR']);
 set_session('ss_personalpay_uid', $uid);
 
 $is_noti_pay = isset($is_noti_pay) ? $is_noti_pay : false;

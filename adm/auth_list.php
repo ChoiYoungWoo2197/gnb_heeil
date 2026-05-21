@@ -23,6 +23,9 @@ if (!$sst) {
     $sst  = "a.mb_id, au_menu";
     $sod = "";
 }
+$allowed_sst = array('a.mb_id', 'mb_nick', 'au_menu', 'au_auth', 'a.mb_id, au_menu');
+if ($sst && !in_array($sst, $allowed_sst)) $sst = 'a.mb_id, au_menu';
+if ($sod && !in_array(strtolower($sod), array('asc', 'desc'))) $sod = '';
 $sql_order = " order by $sst $sod ";
 
 $sql = " select count(*) as cnt
@@ -151,7 +154,7 @@ $colspan = 5;
     //if (isset($stx))
     //    echo '<script>document.fsearch.sfl.value = "'.$sfl.'";</script>'."\n";
 
-    if (strstr($sfl, 'mb_id')) {
+    if (strpos($sfl, 'mb_id') !== false) {
         $mb_id = $stx;
     } else {
         $mb_id = '';

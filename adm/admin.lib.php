@@ -281,7 +281,7 @@ function auth_check($auth, $attr, $return = false)
 
     $attr = strtolower($attr);
 
-    if (!strstr($auth, $attr)) {
+    if (strpos($auth, $attr) === false) {
         if ($attr == 'r') {
             $msg = '읽을 권한이 없습니다.';
             if ($return) {
@@ -389,7 +389,7 @@ function order_select($fld, $sel = '')
 // 불법접근을 막도록 토큰을 생성하면서 토큰값을 리턴
 function get_admin_token()
 {
-    $token = md5(uniqid(rand(), true));
+    $token = get_random_token_string(16);
     set_session('ss_admin_token', $token);
 
     return $token;

@@ -753,7 +753,8 @@ if($is_kakaopay_use) {
             {
                 $bank_account = '<select name="od_bank_account" id="od_bank_account">'.PHP_EOL;
                 $bank_account .= '<option value="">선택하십시오.</option>';
-                for ($i=0; $i<count($str); $i++)
+                $str_cnt = count($str);
+                for ($i=0; $i<$str_cnt; $i++)
                 {
                     //$str[$i] = str_replace("\r", "", $str[$i]);
                     $str[$i] = trim($str[$i]);
@@ -1444,8 +1445,8 @@ function pay_approval()
                 break;
         }
         f.method.value = pay_method;
-        f.orderId.value = '<?=$od_id?>';
-        f.orderName.value = '<?=$goods?>';
+        f.orderId.value = "<?php echo $od_id; ?>";
+        f.orderName.value = "<?php echo $goods; ?>";
 
         f.customerName.value = pf.od_name.value;
         f.customerEmail.value = pf.od_email.value;
@@ -1468,6 +1469,10 @@ function pay_approval()
 
         f.amountCurrency.value = 'KRW';
         f.amountValue.value = f.good_mny.value;
+        if (pf && pf.amountValue) {
+            pf.amountValue.value = f.good_mny.value;
+        }
+        
         <?php if($default['de_tax_flag_use']) { ?>
         f.taxFreeAmount.value = pf.comm_free_mny.value;
         <?php } ?>

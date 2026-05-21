@@ -317,6 +317,63 @@ if (!isset($member['mb_marketing_agree'])) {
     $is_check = true;
 }
 
+// 쿠폰 로그 테이블에 UNIQUE 인덱스 추가 (쿠폰 이중사용 방지)
+if (defined('G5_USE_SHOP') && G5_USE_SHOP) {
+    $result = sql_query("SHOW INDEX FROM `{$g5['g5_shop_coupon_log_table']}` WHERE Key_name = 'idx_coupon_use'", false);
+    if (!$result || !sql_num_rows($result)) {
+        // 기존에 동일 쿠폰이 중복 사용된 데이터가 있으면 UNIQUE 인덱스 생성 실패하므로 중복 데이터 정리
+        $dup_sql = " SELECT cp_id, mb_id, MIN(cl_id) as keep_id
+                       FROM `{$g5['g5_shop_coupon_log_table']}`
+                      GROUP BY cp_id, mb_id
+                     HAVING COUNT(*) > 1 ";
+
+        $dup_result = sql_query($dup_sql, false);
+        if ($dup_result && sql_num_rows($dup_result)) {
+            while ($dup_row = sql_fetch_array($dup_result)) {
+                
+                echo $dup_row['cp_id']." 의 동일 쿠폰이 중복 사용된 데이터가 있으므로 인덱스 생성이 불가합니다. <br>";
+                
+                $sql = " DELETE FROM `{$g5['g5_shop_coupon_log_table']}`
+                             WHERE cp_id = '{$dup_row['cp_id']}'
+                               AND mb_id = '{$dup_row['mb_id']}'
+                               AND cl_id != '{$dup_row['keep_id']}' ";
+                if ($is_admin === 'super') {
+                    echo "데이터베이스에서 검토후에 이 쿼리문을 실행해 주세요.<br>$sql<br>";
+                }
+                // sql_query($sql);
+            }
+        }
+
+        // MyISAM + utf8mb4 환경에서 키 길이 초과 방지: cp_id varchar(100), mb_id varchar(100)으로 조정
+        sql_query("ALTER TABLE `{$g5['g5_shop_coupon_log_table']}` MODIFY `cp_id` varchar(100) NOT NULL DEFAULT '', MODIFY `mb_id` varchar(100) NOT NULL DEFAULT ''", false);
+        sql_query("ALTER TABLE `{$g5['g5_shop_coupon_log_table']}` ADD UNIQUE KEY `idx_coupon_use` (`cp_id`, `mb_id`)", false);
+        $is_check = true;
+    }
+}
+
+// 자동 로그인 토큰 테이블 생성 (KVE-2026-0610: 추측 가능한 자동 로그인 쿠키 위조 방지)
+// 다중 디바이스 지원을 위해 회원당 여러 토큰을 별도 테이블로 관리
+if (!isset($g5['member_auto_login_table'])) {
+    $g5['member_auto_login_table'] = G5_TABLE_PREFIX.'member_auto_login';
+}
+if (!sql_query(" DESC `{$g5['member_auto_login_table']}` ", false)) {
+    sql_query(" CREATE TABLE IF NOT EXISTS `{$g5['member_auto_login_table']}` (
+                  `al_id` int(11) NOT NULL auto_increment,
+                  `mb_id` varchar(20) NOT NULL default '',
+                  `al_token` varchar(64) NOT NULL default '',
+                  `al_user_agent` varchar(255) NOT NULL default '',
+                  `al_ip` varchar(45) NOT NULL default '',
+                  `al_created` datetime DEFAULT NULL,
+                  `al_last_used` datetime DEFAULT NULL,
+                  `al_expire` datetime DEFAULT NULL,
+                  PRIMARY KEY  (`al_id`),
+                  UNIQUE KEY `al_token` (`al_token`),
+                  KEY `mb_id` (`mb_id`),
+                  KEY `al_expire` (`al_expire`)
+                ) ENGINE=MyISAM DEFAULT CHARSET=utf8 ", true);
+    $is_check = true;
+}
+
 $is_check = run_replace('admin_dbupgrade', $is_check);
 
 $db_upgrade_msg = $is_check ? 'DB 업그레이드가 완료되었습니다.' : '더 이상 업그레이드 할 내용이 없습니다.<br>현재 DB 업그레이드가 완료된 상태입니다.';

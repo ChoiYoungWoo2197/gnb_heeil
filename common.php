@@ -165,6 +165,11 @@ if (file_exists($dbconfig_file)) {
     sql_set_charset(G5_DB_CHARSET, $connect_db);
     if(defined('G5_MYSQL_SET_MODE') && G5_MYSQL_SET_MODE) sql_query("SET SESSION sql_mode = ''");
     if (defined('G5_TIMEZONE')) sql_query(" set time_zone = '".G5_TIMEZONE."'");
+
+    // 자동 로그인 토큰 테이블 - 기존 dbconfig.php에 정의되지 않은 경우 fallback
+    if (!isset($g5['member_auto_login_table'])) {
+        $g5['member_auto_login_table'] = G5_TABLE_PREFIX.'member_auto_login';
+    }
 } else {
 ?>
 
@@ -556,17 +561,30 @@ if (isset($_SESSION['ss_mb_id']) && $_SESSION['ss_mb_id']) { // 로그인중이�
         $tmp_mb_id = substr(preg_replace("/[^a-zA-Z0-9_]*/", "", $tmp_mb_id), 0, 20);
         // 최고관리자는 자동로그인 금지
         if (strtolower($tmp_mb_id) !== strtolower($config['cf_admin'])) {
-            $sql = " select mb_password, mb_intercept_date, mb_leave_date, mb_email_certify, mb_datetime from {$g5['member_table']} where mb_id = '{$tmp_mb_id}' ";
-            $row = sql_fetch($sql);
-            if($row['mb_password']){
-                $key = md5($_SERVER['SERVER_ADDR'] . $_SERVER['SERVER_SOFTWARE'] . $_SERVER['HTTP_USER_AGENT'] . $row['mb_password']);
-                // 쿠키에 저장된 키와 같다면
-                $tmp_key = get_cookie('ck_auto');
-                if ($tmp_key === $key && $tmp_key) {
+            // 쿠키 값을 g5_member_auto_login 테이블의 토큰과 비교
+            // 다중 디바이스 지원을 위해 회원당 여러 토큰을 별도 테이블에 저장
+            $tmp_key = get_cookie('ck_auto');
+            // 토큰 형식 검증 (64자 hex) - 빈 값/잘못된 형식 차단
+            if ($tmp_key && preg_match('/^[a-f0-9]{64}$/', $tmp_key)) {
+                $tmp_key_hash = hash('sha256', $tmp_key);  // 쿠키 값을 해시해서 DB와 비교
+                $sql = " select al.al_id, al.al_expire,
+                                m.mb_intercept_date, m.mb_leave_date, m.mb_email_certify, m.mb_datetime
+                           from {$g5['member_auto_login_table']} al
+                           inner join {$g5['member_table']} m on m.mb_id = al.mb_id
+                          where al.mb_id = '{$tmp_mb_id}'
+                            and al.al_token = '{$tmp_key_hash}'
+                            and al.al_expire > '".G5_TIME_YMDHIS."' ";
+                $row = sql_fetch($sql);
+                if (isset($row['al_id']) && $row['al_id']) {
                     // 차단, 탈퇴가 아니고 메일인증이 사용이면서 인증을 받았다면
                     if ($row['mb_intercept_date'] == '' &&
                         $row['mb_leave_date'] == '' &&
                         (!$config['cf_use_email_certify'] || preg_match('/[1-9]/', $row['mb_email_certify'])) ) {
+                        // 마지막 사용 시간 갱신
+                        sql_query(" update {$g5['member_auto_login_table']}
+                                       set al_last_used = '".G5_TIME_YMDHIS."'
+                                     where al_id = '{$row['al_id']}' ");
+
                         // 세션에 회원아이디를 저장하여 로그인으로 간주
                         set_session('ss_mb_id', $tmp_mb_id);
                         if(function_exists('update_auth_session_token')) update_auth_session_token($row['mb_datetime']);
@@ -576,9 +594,9 @@ if (isset($_SESSION['ss_mb_id']) && $_SESSION['ss_mb_id']) { // 로그인중이�
                         exit;
                     }
                 }
+                // $row 배열변수 해제
+                unset($row);
             }
-            // $row 배열변수 해제
-            unset($row);
         }
     }
     // 자동로그인 end ---------------------------------------
@@ -591,7 +609,8 @@ if (!(isset($member['mb_id']) && $config['cf_admin'] === $member['mb_id'])) {
     if ($cf_possible_ip) {
         $is_possible_ip = false;
         $pattern = explode("\n", $cf_possible_ip);
-        for ($i=0; $i<count($pattern); $i++) {
+        $pattern_cnt = count($pattern);
+        for ($i=0; $i<$pattern_cnt; $i++) {
             $pattern[$i] = trim($pattern[$i]);
             if (empty($pattern[$i]))
                 continue;
@@ -610,7 +629,8 @@ if (!(isset($member['mb_id']) && $config['cf_admin'] === $member['mb_id'])) {
     // 접근차단 IP
     $is_intercept_ip = false;
     $pattern = explode("\n", trim($config['cf_intercept_ip']));
-    for ($i=0; $i<count($pattern); $i++) {
+    $pattern_cnt = count($pattern);
+    for ($i=0; $i<$pattern_cnt; $i++) {
         $pattern[$i] = trim($pattern[$i]);
         if (empty($pattern[$i]))
             continue;
