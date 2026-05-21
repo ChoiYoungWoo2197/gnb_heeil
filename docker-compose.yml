@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  gnb_heeil:
+    build: .
+    container_name: gnb_heeil
+    ports:
+      - "8082:80"
+    volumes:
+      - .:/var/www/html
+      - ./data:/var/www/html/data
+      - db_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  db_data:
