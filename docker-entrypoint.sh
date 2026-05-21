@@ -9,9 +9,9 @@ if [ ! -d "/var/lib/mysql/mysql" ]; then
     sleep 5
 
     mysql -u root <<-EOSQL
-        CREATE DATABASE IF NOT EXISTS gnuboard CHARACTER SET utf8 COLLATE utf8_unicode_ci;
-        CREATE USER IF NOT EXISTS 'gnuboard'@'localhost' IDENTIFIED BY 'gnuboard123';
-        GRANT ALL PRIVILEGES ON gnuboard.* TO 'gnuboard'@'localhost';
+        CREATE DATABASE IF NOT EXISTS gnb_heeil CHARACTER SET utf8 COLLATE utf8_unicode_ci;
+        CREATE USER IF NOT EXISTS 'gnb_heeil'@'localhost' IDENTIFIED BY 'gnb_heeil';
+        GRANT ALL PRIVILEGES ON gnb_heeil.* TO 'gnb_heeil'@'localhost';
         FLUSH PRIVILEGES;
 EOSQL
 
